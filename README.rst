@@ -1,0 +1,2 @@
+trytond-sale-data-warehouse
+==========================
