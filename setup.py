@@ -85,7 +85,7 @@ requires = []
 MODULE2PREFIX = {}
 
 MODULE = "sale_data_warehouse"
-PREFIX = "trytond"
+PREFIX = "openlabs"
 for dep in info.get('depends', []):
     if not re.match(r'(ir|res|webdav)(\W|$)', dep):
         requires.append(
