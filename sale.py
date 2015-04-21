@@ -17,13 +17,14 @@ __metaclass__ = PoolMeta
 class SaleLine:
     __name__ = 'sale.line'
 
-    def get_warehouse_query(self):
+    @classmethod
+    def get_warehouse_query(cls):
         """
         Returns the data warehouse select query. This query only returns a
         select query and the tables themselves, but does not execute it. This
         gives downstream modules room to change the query.
         """
-        table = lambda pool_name: Pool().get(pool_name).__table__
+        table = lambda pool_name: Pool().get(pool_name).__table__()
 
         sale_line = table('sale.line')
         sale_sale = table('sale.sale')
@@ -141,7 +142,7 @@ class SaleLine:
         rebuild_query = from_.select(where=where, *columns)
 
         # Empty the table first
-        Transaction().cursor.execute("DELETE FROM dw_sale_line")
+        Transaction().cursor.execute("DROP TABLE IF EXISTS dw_sale_line")
         Transaction().cursor.execute(
             "CREATE TABLE dw_sale_line AS " + str(rebuild_query),
             rebuild_query.params
