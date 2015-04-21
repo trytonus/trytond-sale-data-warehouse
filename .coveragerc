@@ -1,0 +1,5 @@
+[run]
+source = trytond.modules.sale_data_warehouse
+
+[report]
+omit = */tests/*, */setup.py
