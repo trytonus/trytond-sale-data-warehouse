@@ -6,6 +6,7 @@
     :license: BSD, see LICENSE for more details.
 """
 from sql.functions import ToChar
+from sql.operators import Mul
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
 
@@ -45,6 +46,7 @@ class SaleLine:
         columns = [
             sale_line.id.as_('id'),
             sale_line.quantity.as_('quantity'),
+            Mul(sale_line.quantity, sale_line.unit_price).as_('amount'),
 
             product_product.code.as_('product_code'),
             product_template.name.as_('product_name'),
@@ -73,7 +75,6 @@ class SaleLine:
             ToChar(sale_sale.sale_date, 'YYYY').as_('sale_year'),
             ToChar(sale_sale.sale_date, 'MM').as_('sale_month'),
             ToChar(sale_sale.sale_date, 'dd').as_('sale_day'),
-            sale_sale.total_amount_cache.as_('total_amount'),
         ]
         from_ = sale_line.join(
             sale_sale,
@@ -126,7 +127,11 @@ class SaleLine:
             ])
 
         # Build a where clause for states
-        where = sale_sale.state.in_(('confirmed', 'processing', 'done'))
+        where = (
+            sale_sale.state.in_(('confirmed', 'processing', 'done'))
+        ) & (
+            sale_line.type == 'line'
+        )
 
         return from_, columns, where
 
