@@ -3,10 +3,17 @@
     sale.py
 
 """
+import logging
+
 from sql.functions import ToChar
 from sql.operators import Mul
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
+
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 
 __all__ = ['SaleLine']
@@ -15,6 +22,12 @@ __metaclass__ = PoolMeta
 
 class SaleLine:
     __name__ = 'sale.line'
+
+    @classmethod
+    def __register__(cls, module_name):
+        super(SaleLine, cls).__register__(module_name)
+        if not Pool.test:
+            cls.build_data_warehouse()
 
     @classmethod
     def get_warehouse_query(cls):
@@ -134,19 +147,55 @@ class SaleLine:
         return from_, columns, where
 
     @classmethod
-    def rebuild_data_warehouse(cls):
+    def build_data_warehouse(cls):
         """
-        Build the data warehouse again. Depending on the backend that you
-        are using your downstream module might want to overwrite this. The
-        preferred analytics tool at Openlabs is pentaho and pentaho requires
-        tables. So this creates a new table.
+        Build the data warehouse. Depending on the backend that you
+        are using your downstream module might want to overwrite this.
+        This creates a new materialized view without data.
         """
         from_, columns, where = cls.get_warehouse_query()
         rebuild_query = from_.select(where=where, *columns)
 
-        # Empty the table first
-        Transaction().cursor.execute("DROP TABLE IF EXISTS dw_sale_line")
         Transaction().cursor.execute(
-            "CREATE TABLE dw_sale_line AS " + str(rebuild_query),
-            rebuild_query.params
+            "DROP MATERIALIZED VIEW IF EXISTS dw_sale_line"
         )
+        Transaction().cursor.execute(
+            "CREATE MATERIALIZED VIEW dw_sale_line AS " + str(rebuild_query) +
+            " WITH NO DATA", rebuild_query.params
+        )
+        # Index is required to refresh materialized view CONCURRENTLY
+        Transaction().cursor.execute(
+            "CREATE UNIQUE INDEX unique_id ON dw_sale_line (id)"
+        )
+
+    @classmethod
+    def refresh_data_warehouse(cls):
+        """
+        Refresh data in data warehouse and commit here itself
+        """
+        logger = logging.getLogger('SALE_LINE_DATA_WAREHOUSE')
+
+        if not psycopg2:
+            logger.info('psycopg2 not found')
+            return
+        try:
+            with Transaction().new_cursor():
+                Transaction().cursor.execute(
+                    "REFRESH MATERIALIZED VIEW CONCURRENTLY dw_sale_line"
+                )
+                Transaction().cursor.commit()
+        except psycopg2.NotSupportedError, e:
+            if 'CONCURRENTLY' not in e.message:
+                # Raise is error is not because of 'CONCURRENTLY'
+                raise
+            logger.info(
+                'CONCURRENTLY Materialized refresh failed, proceeding to '
+                'Normal refresh'
+            )
+            Transaction().cursor.rollback()
+            # Refresh view normally
+            with Transaction().new_cursor():
+                Transaction().cursor.execute(
+                    "REFRESH MATERIALIZED VIEW dw_sale_line"
+                )
+                Transaction().cursor.commit()
