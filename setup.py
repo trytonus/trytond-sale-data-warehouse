@@ -103,7 +103,8 @@ requires.append(
 setup(
     name='%s_%s' % (PREFIX, MODULE),
     version=info.get('version', '0.0.1'),
-    description="A module that warehouses sale data into another data warehouse table",
+    description="A module that warehouses sale data into another data warehouse"
+    "table",
     author="Fulfil.IO Inc., Openlabs Technologies and Consulting (P) Ltd.",
     author_email='info@fulfil.io',
     url='http://www.fulfil.io/',
