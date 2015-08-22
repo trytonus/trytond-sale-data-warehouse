@@ -2,7 +2,7 @@
 <tryton>
     <data>
         <record model="ir.cron" id="cron_rebuild_sale_line_dw">
-            <field name="name">Rebuild Sale Line Data Warehouse</field>
+            <field name="name">Refresh Sale Line Data Warehouse</field>
             <field name="request_user" ref="res.user_admin"/>
             <field name="user" ref="res.user_trigger"/>
             <field name="active" eval="True"/>
@@ -11,7 +11,7 @@
             <field name="number_calls" eval="-1"/>
             <field name="repeat_missed" eval="False"/>
             <field name="model">sale.line</field>
-            <field name="function">rebuild_data_warehouse</field>
+            <field name="function">refresh_data_warehouse</field>
         </record>
     </data>
 </tryton>
