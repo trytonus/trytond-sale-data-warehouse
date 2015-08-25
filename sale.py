@@ -52,6 +52,7 @@ class SaleLine:
         invoice_country = table('country.country')
         invoice_subdivision = table('country.subdivision')
         shipment_country = table('country.country')
+        currency_currency = table('currency.currency')
         shipment_subdivision = table('country.subdivision')
 
         columns = [
@@ -69,6 +70,7 @@ class SaleLine:
             # Sale primary data
             sale_sale.id.as_('sale_id'),
             sale_sale.reference.as_('sale_reference'),
+            currency_currency.code.as_('currency'),
             sale_sale.state.as_('state'),
 
             # Address, country information
@@ -120,6 +122,9 @@ class SaleLine:
         ).join(
             invoice_subdivision, 'LEFT OUTER',
             (invoice_address.subdivision == invoice_subdivision.id)
+        ).join(
+            currency_currency, 'LEFT OUTER',
+            (sale_sale.currency == currency_currency.id)
         )
 
         try:
