@@ -55,6 +55,15 @@ class SaleLine:
         currency_currency = table('currency.currency')
         shipment_subdivision = table('country.subdivision')
 
+        tables = {
+            'sale.line': sale_line,
+            'sale.sale': sale_sale,
+            'product.template': product_template,
+            'product.product': product_product,
+            'product.category': product_category,
+            'party.party': party_party,
+        }
+
         columns = [
             sale_line.id.as_('id'),
             sale_line.quantity.as_('quantity'),
@@ -149,7 +158,7 @@ class SaleLine:
             sale_line.type == 'line'
         )
 
-        return from_, columns, where
+        return from_, columns, where, tables
 
     @classmethod
     def build_data_warehouse(cls):
@@ -158,7 +167,7 @@ class SaleLine:
         are using your downstream module might want to overwrite this.
         This creates a new materialized view without data.
         """
-        from_, columns, where = cls.get_warehouse_query()
+        from_, columns, where, _ = cls.get_warehouse_query()
         rebuild_query = from_.select(where=where, *columns)
 
         Transaction().cursor.execute(
