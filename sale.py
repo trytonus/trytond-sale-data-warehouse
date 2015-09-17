@@ -198,7 +198,7 @@ class SaleLine:
                     "REFRESH MATERIALIZED VIEW CONCURRENTLY dw_sale_line"
                 )
                 Transaction().cursor.commit()
-        except psycopg2.NotSupportedError, e:
+        except (psycopg2.NotSupportedError, psycopg2.ProgrammingError), e:
             if 'CONCURRENTLY' not in e.message:
                 # Raise is error is not because of 'CONCURRENTLY'
                 raise
