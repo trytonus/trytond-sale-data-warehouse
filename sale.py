@@ -9,6 +9,7 @@ from sql.functions import ToChar
 from sql.operators import Mul
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
+from sql.aggregate import Aggregate
 
 try:
     import psycopg2
@@ -18,6 +19,11 @@ except ImportError:
 
 __all__ = ['SaleLine']
 __metaclass__ = PoolMeta
+
+
+class JsonAgg(Aggregate):
+    __slots__ = ()
+    _sql = 'JSON_AGG'
 
 
 class SaleLine:
@@ -54,6 +60,8 @@ class SaleLine:
         shipment_country = table('country.country')
         currency_currency = table('currency.currency')
         shipment_subdivision = table('country.subdivision')
+        party_category_rel = table('party.party-party.category')
+        party_category = table('party.category')
 
         tables = {
             'sale.line': sale_line,
@@ -97,6 +105,7 @@ class SaleLine:
             ToChar(sale_sale.sale_date, 'YYYY').as_('sale_year'),
             ToChar(sale_sale.sale_date, 'MM').as_('sale_month'),
             ToChar(sale_sale.sale_date, 'dd').as_('sale_day'),
+            JsonAgg(party_category.name).as_('party_category'),
         ]
         from_ = sale_line.join(
             sale_sale,
@@ -113,6 +122,12 @@ class SaleLine:
         ).join(
             party_party, 'LEFT OUTER',
             (sale_sale.party == party_party.id)
+        ).join(
+            party_category_rel, 'LEFT OUTER',
+            (party_party.id == party_category_rel.party)
+        ).join(
+            party_category, 'LEFT OUTER',
+            (party_category_rel.category == party_category.id)
         ).join(
             shipment_address, 'LEFT OUTER',
             (sale_sale.shipment_address == shipment_address.id)
@@ -158,7 +173,32 @@ class SaleLine:
             sale_line.type == 'line'
         )
 
-        return from_, columns, where, tables
+        group_by = (
+            sale_line.id,
+            sale_line.quantity,
+            product_product.code,
+            product_template.name,
+            product_category.name,
+            party_party.name,
+            party_party.id,
+            sale_sale.id,
+            sale_sale.reference,
+            currency_currency.code,
+            sale_sale.state,
+            invoice_country.code,
+            invoice_country.name,
+            invoice_subdivision.code,
+            invoice_subdivision.name,
+            shipment_country.code,
+            shipment_country.name,
+            shipment_subdivision.code,
+            shipment_subdivision.name,
+            sale_sale.sale_date,
+            sale_channel.code,
+            sale_channel.name,
+            )
+
+        return from_, columns, where, tables, group_by
 
     @classmethod
     def build_data_warehouse(cls):
@@ -167,8 +207,8 @@ class SaleLine:
         are using your downstream module might want to overwrite this.
         This creates a new materialized view without data.
         """
-        from_, columns, where, _ = cls.get_warehouse_query()
-        rebuild_query = from_.select(where=where, *columns)
+        from_, columns, where, _, gb = cls.get_warehouse_query()
+        rebuild_query = from_.select(where=where, *columns, group_by=gb)
 
         Transaction().cursor.execute(
             "DROP MATERIALIZED VIEW IF EXISTS dw_sale_line"
