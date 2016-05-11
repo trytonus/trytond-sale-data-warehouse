@@ -9,6 +9,7 @@ from sql.functions import ToChar
 from sql.operators import Mul
 from trytond.pool import PoolMeta, Pool
 from trytond.transaction import Transaction
+from sql.aggregate import Aggregate
 
 try:
     import psycopg2
@@ -18,6 +19,11 @@ except ImportError:
 
 __all__ = ['SaleLine']
 __metaclass__ = PoolMeta
+
+
+class JsonAgg(Aggregate):
+    __slots__ = ()
+    _sql = 'JSON_AGG'
 
 
 class SaleLine:
@@ -54,6 +60,8 @@ class SaleLine:
         shipment_country = table('country.country')
         currency_currency = table('currency.currency')
         shipment_subdivision = table('country.subdivision')
+        party_category_rel = table('party.party-party.category')
+        party_category = table('party.category')
 
         tables = {
             'sale.line': sale_line,
@@ -63,6 +71,19 @@ class SaleLine:
             'product.category': product_category,
             'party.party': party_party,
         }
+
+        join = party_party.join(
+            party_category_rel, 'LEFT OUTER',
+            (party_category_rel.party == party_party.id)
+        ).join(
+            party_category, 'LEFT OUTER',
+            (party_category_rel.category == party_category.id)
+        )
+
+        sub_select = join.select(
+            party_party.id, JsonAgg(party_category.name).as_('categories'),
+            group_by=party_party.id
+            )
 
         columns = [
             sale_line.id.as_('id'),
@@ -97,6 +118,7 @@ class SaleLine:
             ToChar(sale_sale.sale_date, 'YYYY').as_('sale_year'),
             ToChar(sale_sale.sale_date, 'MM').as_('sale_month'),
             ToChar(sale_sale.sale_date, 'dd').as_('sale_day'),
+            sub_select.categories.as_('customer_categories'),
         ]
         from_ = sale_line.join(
             sale_sale,
@@ -113,6 +135,9 @@ class SaleLine:
         ).join(
             party_party, 'LEFT OUTER',
             (sale_sale.party == party_party.id)
+        ).join(
+            sub_select, 'LEFT OUTER',
+            (sale_sale.party == sub_select.id)
         ).join(
             shipment_address, 'LEFT OUTER',
             (sale_sale.shipment_address == shipment_address.id)
