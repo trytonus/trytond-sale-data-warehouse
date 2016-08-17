@@ -36,7 +36,7 @@ class SaleLine:
         select query and the tables themselves, but does not execute it. This
         gives downstream modules room to change the query.
         """
-        table = lambda pool_name: Pool().get(pool_name).__table__()
+        def table(pool_name): return Pool().get(pool_name).__table__()
 
         sale_line = table('sale.line')
         sale_sale = table('sale.sale')
@@ -169,16 +169,17 @@ class SaleLine:
         """
         from_, columns, where, _ = cls.get_warehouse_query()
         rebuild_query = from_.select(where=where, *columns)
+        cursor = Transaction().connection.cursor()
 
-        Transaction().cursor.execute(
+        cursor(
             "DROP MATERIALIZED VIEW IF EXISTS dw_sale_line"
         )
-        Transaction().cursor.execute(
+        cursor(
             "CREATE MATERIALIZED VIEW dw_sale_line AS " + str(rebuild_query) +
             " WITH NO DATA", rebuild_query.params
         )
         # Index is required to refresh materialized view CONCURRENTLY
-        Transaction().cursor.execute(
+        cursor(
             "CREATE UNIQUE INDEX unique_id ON dw_sale_line (id)"
         )
 
@@ -193,11 +194,12 @@ class SaleLine:
             logger.info('psycopg2 not found')
             return
         try:
-            with Transaction().new_cursor():
-                Transaction().cursor.execute(
+            with Transaction().new_transaction() as transaction:
+                cursor = transaction.connection.cursor()
+                cursor.execute(
                     "REFRESH MATERIALIZED VIEW CONCURRENTLY dw_sale_line"
                 )
-                Transaction().cursor.commit()
+                transaction.commit()
         except (psycopg2.NotSupportedError, psycopg2.ProgrammingError), e:
             if 'CONCURRENTLY' not in e.message:
                 # Raise is error is not because of 'CONCURRENTLY'
@@ -206,10 +208,11 @@ class SaleLine:
                 'CONCURRENTLY Materialized refresh failed, proceeding to '
                 'Normal refresh'
             )
-            Transaction().cursor.rollback()
+            Transaction().rollback()
             # Refresh view normally
-            with Transaction().new_cursor():
-                Transaction().cursor.execute(
+            with Transaction().new_transaction() as transaction:
+                cursor = transaction.connection.cursor()
+                cursor.execute(
                     "REFRESH MATERIALIZED VIEW dw_sale_line"
                 )
-                Transaction().cursor.commit()
+                transaction.commit()
