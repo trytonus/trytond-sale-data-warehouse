@@ -3,43 +3,18 @@
     tests/test_views_depends.py
 
 """
-import sys
-import os
-DIR = os.path.abspath(os.path.normpath(os.path.join(
-    __file__, '..', '..', '..', '..', '..', 'trytond'
-)))
-if os.path.isdir(DIR):
-    sys.path.insert(0, os.path.dirname(DIR))
 import unittest
 
 import trytond.tests.test_tryton
-from trytond.tests.test_tryton import test_view, test_depends
+from trytond.tests.test_tryton import ModuleTestCase
 
 
-class TestViewsDepends(unittest.TestCase):
+class TestViewsDepends(ModuleTestCase):
+
     '''
     Test views and depends
     '''
-
-    def setUp(self):
-        """
-        Set up data used in the tests.
-        this method is called before each test function execution.
-        """
-        trytond.tests.test_tryton.install_module('sale_data_warehouse')
-
-    @unittest.skip("No views")
-    def test0005views(self):
-        '''
-        Test views.
-        '''
-        test_view('sale_data_warehouse')
-
-    def test0006depends(self):
-        '''
-        Test depends.
-        '''
-        test_depends()
+    module = 'sale_data_warehouse'
 
 
 def suite():
