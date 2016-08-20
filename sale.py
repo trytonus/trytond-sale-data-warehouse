@@ -171,15 +171,15 @@ class SaleLine:
         rebuild_query = from_.select(where=where, *columns)
         cursor = Transaction().connection.cursor()
 
-        cursor(
+        cursor.execute(
             "DROP MATERIALIZED VIEW IF EXISTS dw_sale_line"
         )
-        cursor(
+        cursor.execute(
             "CREATE MATERIALIZED VIEW dw_sale_line AS " + str(rebuild_query) +
             " WITH NO DATA", rebuild_query.params
         )
         # Index is required to refresh materialized view CONCURRENTLY
-        cursor(
+        cursor.execute(
             "CREATE UNIQUE INDEX unique_id ON dw_sale_line (id)"
         )
 
