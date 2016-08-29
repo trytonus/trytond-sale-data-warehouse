@@ -109,7 +109,7 @@ class SaleLine:
             (product_product.template == product_template.id)
         ).join(
             product_category, 'LEFT OUTER',
-            (product_template.category == product_category.id)
+            (product_template.account_category == product_category.id)
         ).join(
             party_party, 'LEFT OUTER',
             (sale_sale.party == party_party.id)
